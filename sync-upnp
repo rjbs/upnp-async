@@ -1,0 +1,89 @@
+#!perl
+use v5.30.0;
+use warnings;
+
+package Net::Async::UPnP;
+
+use Socket;
+
+my $SSDP_ADDR = '239.255.255.250';
+my $SSDP_PORT = 1900;
+
+my $DEFAULT_ST = q{upnp:rootdevice};
+my $DEFAULT_MX = 1;
+
+sub get_devices {
+  my $ssdp_header = <<~"END_REQUEST";
+  M-SEARCH * HTTP/1.1
+  Host: $SSDP_ADDR:$SSDP_PORT
+  Man: "ssdp:discover"
+  ST: $DEFAULT_ST
+  MX: $DEFAULT_MX
+  END_REQUEST
+
+	$ssdp_header =~ s/\r//g;
+	$ssdp_header =~ s/\n/\r\n/g;
+
+	socket(SSDP_SOCK, AF_INET, SOCK_DGRAM, getprotobyname('udp'));
+	my $ssdp_mcast = sockaddr_in($SSDP_PORT, inet_aton($SSDP_ADDR));
+
+	send(SSDP_SOCK, $ssdp_header, 0, $ssdp_mcast);
+
+  warn "sending broadcast...\n";
+
+	my @dev_list;
+
+	my $rin = '';
+	my $rout;
+
+	vec($rin, fileno(SSDP_SOCK), 1) = 1;
+	while( select($rout = $rin, undef, undef, ($DEFAULT_MX * 2)) ) {
+		recv(SSDP_SOCK, my $ssdp_res_msg, 4096, 0);
+
+		warn "Message <<$ssdp_res_msg>>\n";
+
+		#unless ($ssdp_res_msg =~ m/LOCATION[ :]+(.*)\r/i) {
+		#	next;
+		#}		
+		#$dev_location = $1;
+		#print "dev_location=$dev_location\n" if ($Net::UPnP::DEBUG);
+    #            unless ($dev_location =~ m{http://([0-9a-z.-]+)(?::(\d+))?/(.*)}i) {
+    #                    print "bad dev_location: $dev_location\n" if ($Net::UPnP::DEBUG);
+		#	next;
+		#}
+		#$dev_addr = $1;
+		#$dev_port = $2 || 80;
+		#$dev_path = '/' . $3;
+		#print "dev_addr=$dev_addr dev_port=$dev_port dev_path=$dev_path\n" if ($Net::UPnP::DEBUG);
+		#
+		#$http_req = Net::UPnP::HTTP->new();
+		#$post_res = $http_req->post($dev_addr, $dev_port, "GET", $dev_path, "", "");
+		#next if ! $post_res;
+		#
+		#if ($Net::UPnP::DEBUG) {
+		#	print $post_res->getstatus() . "\n";
+		#	print $post_res->getheader() . "\n";
+		#	print $post_res->getcontent() . "\n";
+		#}
+
+ 		#$post_content = $post_res->getcontent();
+
+		#$dev = Net::UPnP::Device->new();
+ 		#$dev->setssdp($ssdp_res_msg);
+		#$dev->setdescription($post_content);
+
+		#if ($Net::UPnP::DEBUG) {
+	 	#	print "ssdp = $ssdp_res_msg\n";
+	 	#	print "description = $post_content\n";
+	 	#}
+
+		#push(@dev_list, $dev);
+		#
+	}
+
+	close(SSDP_SOCK);
+}
+
+get_devices();
+
+1;
